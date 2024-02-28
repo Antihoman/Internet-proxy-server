@@ -1,19 +1,65 @@
-version: '3'
-
+version: "3"
 
 services:
   mongo:
-      image: 'mongo'
-      restart: always
-      environment: 
-        - MONGODB_DATABASE=admin
-        - MONGO_INITDB_ROOT_USERNAME=root
-        - MONGO_INITDB_ROOT_PASSWORD=root
-      ports:
+    image: "mongo"
+    restart: always
+    # not secure
+    environment:
+      - MONGODB_DATABASE=admin
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=root
+    # not secure
+    ports:
       - 27017:27017
-      volumes:
-        - data:/data/db
-
+    volumes:
+      - data:/data/db
+    networks:
+      net:
+      # 192.168.240.1 используется для соединения host и docker
+        ipv4_address: 192.168.240.2
+  proxy:
+    build:
+      context: .
+      dockerfile: proxy-dockerfile
+    restart: always
+    ports:
+      - 8080:8080
+    links:
+      - mongo:mongo
+    depends_on:
+      - mongo
+    volumes:
+      - ./build/proxy:/build/
+      - ./.mitm:/root/.mitm
+    networks:
+      net:
+        ipv4_address: 192.168.240.3
+  webapi:
+    build:
+      context: .
+      dockerfile: webapi-dockerfile
+    restart: always
+    ports:
+      - 8000:8000
+    links:
+      - mongo:mongo
+      - proxy:proxy
+    depends_on:
+      - mongo
+      - proxy
+    volumes:
+      - ./build/webapi:/build/
+    networks:
+      net:
+        ipv4_address: 192.168.240.4
 
 volumes:
   data:
+
+networks:
+  net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.240.0/24

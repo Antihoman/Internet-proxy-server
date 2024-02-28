@@ -7,13 +7,16 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"strings"
 
 	"github.com/gorilla/mux"
 	"github/Antihoman/Internet-proxy-server/pkg/domain"
 )
 
-const attackVector = `vulnerable'"><img src onerror=alert()>`
+const (
+	attackVector           = `vulnerable'"><img src onerror=alert()>`
+	resHeaderTransactionID = "X-Transaction-Id"
+	proxyURL               = "http://proxy:8080"
+)
 
 type Handler struct {
 	repo Repository
@@ -31,14 +34,15 @@ func (h *Handler) Requests(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Error to get all requests"))
 	}
 
-	reqs := []Request{}
+	reqs := []TransactionDTO{}
 	for _, tr := range transactions {
-		req := Request{
-			ID:         tr.ID.(string),
-			Host:       tr.Request.Host,
-			Method:     tr.Request.Method,
-			Path:       tr.Request.Path,
-			StatusCode: tr.Response.StatusCode,
+		req := TransactionDTO{
+			ID:            tr.ID.(string),
+			Host:          tr.Request.Host,
+			Method:        tr.Request.Method,
+			Path:          tr.Request.Path,
+			StatusCode:    tr.Response.StatusCode,
+			ContentLenght: tr.Response.ContentLenght,
 		}
 		reqs = append(reqs, req)
 	}
@@ -59,12 +63,9 @@ func (h *Handler) RequestByID(w http.ResponseWriter, r *http.Request) {
 	transaction, err := h.repo.GetByID(id)
 
 	if err != nil {
+		log.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("HTTPTransaction does not exist"))
-	}
-
-	if strings.Contains(transaction.Response.Headers["Content-Type"], "text") {
-		transaction.Response.TextBody = string(transaction.Response.RawBody)
+		w.Write([]byte("Error to get transaction by id"))
 	}
 
 	response, err := json.Marshal(transaction)
@@ -84,12 +85,14 @@ func (h *Handler) ScanByID(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("HTTPTransaction does not exist"))
+		w.Write([]byte("Error to get transaction by id"))
 		return
 	}
 
 	vulnGetParams := []string{}
 	vulnPostParams := []string{}
+
+	transactionsIDs := []string{}
 
 	for key, value := range transaction.Request.GetParams {
 		transaction.Request.GetParams[key] = `vulnerable'"><img src onerror=alert()>`
@@ -107,6 +110,7 @@ func (h *Handler) ScanByID(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte("Error to read body from repeated request"))
 			return
 		}
+		transactionsIDs = append(transactionsIDs, resRepeat.Header[resHeaderTransactionID][0])
 		if bytes.Contains(body, []byte(attackVector)) {
 			vulnGetParams = append(vulnGetParams, key)
 		}
@@ -129,6 +133,7 @@ func (h *Handler) ScanByID(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte("Error to read body from repeated request"))
 			return
 		}
+		transactionsIDs = append(transactionsIDs, resRepeat.Header[resHeaderTransactionID][0])
 		if bytes.Contains(body, []byte(attackVector)) {
 			vulnPostParams = append(vulnGetParams, key)
 		}
@@ -144,6 +149,7 @@ func (h *Handler) ScanByID(w http.ResponseWriter, r *http.Request) {
 	res, err := json.Marshal(map[string]interface{}{
 		"body": map[string]interface{}{
 			"request_id":             id,
+			"scan_requests":          transactionsIDs,
 			"is_vulnerable":          isVuln,
 			"vulnerable_post_params": vulnPostParams,
 			"vulnerable_get_params":  vulnGetParams,
@@ -166,7 +172,7 @@ func (h *Handler) RepeatByID(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("HTTPTransaction does not exist"))
+		w.Write([]byte("Error to get transaction by id"))
 		return
 	}
 
@@ -180,7 +186,7 @@ func (h *Handler) RepeatByID(w http.ResponseWriter, r *http.Request) {
 	}
 	res, err := json.Marshal(map[string]interface{}{
 		"body": map[string]interface{}{
-			"current_request_id":  resRepeat.Header["X-Transaction-Id"][0],
+			"current_request_id":  resRepeat.Header[resHeaderTransactionID][0],
 			"repeated_request_id": id,
 			"status_code":         resRepeat.Status,
 			"content_length":      resRepeat.ContentLength,
@@ -196,7 +202,7 @@ func (h *Handler) RepeatByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func RepeatRequest(transaction domain.HTTPTransaction) (*http.Response, error) {
-	proxyURL, err := url.Parse("http://127.0.0.1:8080")
+	proxyURL, err := url.Parse(proxyURL)
 	if err != nil {
 		return nil, err
 	}

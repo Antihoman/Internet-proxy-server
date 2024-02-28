@@ -10,9 +10,9 @@ import (
 	"path"
 
 	"github/Antihoman/Internet-proxy-server/cmd/internal/delivery"
-	"github/Antihoman/Internet-proxy-server/cmd/internal/repository"
-	pkgCert "github/Antihoman/Internet-proxy-server/cmd/pkg/cert"
-	"github/Antihoman/Internet-proxy-server/cmd/pkg/mongoclient"
+	"github/Antihoman/Internet-proxy-server/pkg/repository"
+	pkgCert "github/Antihoman/Internet-proxy-server/pkg/cert"
+	"github/Antihoman/Internet-proxy-server/pkg/mongoclient"
 )
 
 var (
@@ -23,7 +23,7 @@ var (
 	certFile = path.Join(dir, "ca-cert.pem")
 )
 
-const URI = "mongodb://root:root@localhost:27017"
+const URI = "mongodb://root:root@mongo:27017"
 
 func main() {
 	log.SetPrefix("[PROXY] ")

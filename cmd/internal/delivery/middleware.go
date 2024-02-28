@@ -2,8 +2,11 @@ package delivery
 
 import (
 	"bytes"
+	"io"
 	"log"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github/Antihoman/Internet-proxy-server/pkg/domain"
@@ -62,14 +65,11 @@ func parseReqGetParams(r *http.Request) map[string]string {
 	return data
 }
 
-func parseReqPostParams(r *http.Request) map[string]string {
-	err := r.ParseForm()
-	if err != nil {
-		log.Println(err)
-	}
+func parseReqPostParams(requestBody []byte) map[string]string {
+	form, _ := url.ParseQuery(string(requestBody))
 
 	data := make(map[string]string)
-	for key, values := range r.PostForm {
+	for key, values := range form {
 		data[key] = values[0]
 	}
 	return data
@@ -83,25 +83,17 @@ func parseResHeaders(w http.ResponseWriter) map[string]string {
 	return data
 }
 
-type wrappedRequest struct {
-	*http.Request
-	body []byte
-}
-
-func (wr *wrappedRequest) Read(p []byte) (n int, err error) {
-	return bytes.NewReader(wr.body).Read(p)
-}
-
-func (wr *wrappedRequest) Close() error {
-	return nil
-}
-
 func (mw *Middleware) Save(upstream http.Handler, isSecure bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Println(r.Method, r.Host, r.URL.Path)
-		r.Header.Set("X-Proxy", "yes")
+		r.Header.Set("X-From-Proxy", "yes")
 
 		recorder := &customRecorder{ResponseWriter: w}
+
+		reqBody, _ := io.ReadAll(r.Body)
+		bodyReader := io.NopCloser(bytes.NewBuffer(reqBody))
+
+		r.Body = bodyReader
 
 		r.Header.Del("Accept-Encoding")
 		recorder.Header().Set("Content-Encoding", "identity")
@@ -111,10 +103,13 @@ func (mw *Middleware) Save(upstream http.Handler, isSecure bool) http.Handler {
 		reqGetParams := parseReqGetParams(r)
 		reqHeaders := parseReqHeaders(r)
 		reqCookies := parseReqCookies(r)
-		reqPostParams := parseReqPostParams(r)
+
+		reqPostParams := make(map[string]string)
+		if reqHeaders["Content-Type"] == "application/x-www-form-urlencoded" {
+			reqPostParams = parseReqPostParams(reqBody)
+		}
 
 		var err error
-		var reqBody []byte
 
 		var protocol string
 		if isSecure {
@@ -124,6 +119,14 @@ func (mw *Middleware) Save(upstream http.Handler, isSecure bool) http.Handler {
 		}
 
 		upstream.ServeHTTP(recorder, r)
+
+		resHeaders := parseResHeaders(recorder)
+
+		var resTextBody string
+		if strings.Contains(resHeaders["Content-Type"], "text") ||
+			(strings.Contains(resHeaders["Content-Type"], "application") && !strings.Contains(resHeaders["Content-Type"], "application/octet-stream")) {
+			resTextBody = string(recorder.response)
+		}
 
 		transaction := domain.HTTPTransaction{
 			ID:   objectID,
@@ -143,7 +146,8 @@ func (mw *Middleware) Save(upstream http.Handler, isSecure bool) http.Handler {
 			Response: domain.Response{
 				StatusCode:    recorder.code,
 				RawBody:       recorder.response,
-				Headers:       parseResHeaders(w),
+				TextBody:      resTextBody,
+				Headers:       resHeaders,
 				ContentLenght: len(recorder.response),
 			},
 		}

@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 
-	"github/Antihoman/Internet-proxy-server/cmd/pkg/domain"
+	"github/Antihoman/Internet-proxy-server/pkg/domain"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
