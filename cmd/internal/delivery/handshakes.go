@@ -75,7 +75,7 @@ func (p *Proxy) serveConnect(w http.ResponseWriter, r *http.Request) {
 
 	ch := make(chan int)
 	clientConnFastClose := &onCloseConn{clientConn, func() { ch <- 0 }}
-	http.Serve(&oneShotListener{clientConnFastClose}, p.Wrap(reverseProxy))
+	http.Serve(&oneShotListener{clientConnFastClose}, reverseProxy)
 	<-ch
 }
 
@@ -131,7 +131,7 @@ type oneShotListener struct {
 
 func (l *oneShotListener) Accept() (net.Conn, error) {
 	if l.clientConn == nil {
-		return nil, errors.New("closed")
+		return nil, errors.New("closed >>")
 	}
 	clientConn := l.clientConn
 	l.clientConn = nil

@@ -16,6 +16,13 @@ func NewMiddleware(repo Repository) Middleware {
 	return Middleware{repo: repo}
 }
 
+func (mw *Middleware) Log(upstream http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Println(r.Method, r.Host, r.URL.Path)
+		upstream.ServeHTTP(w, r)
+	})
+}
+
 func (mw *Middleware) Save(upstream http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r.Header.Set("X-Test", "test")

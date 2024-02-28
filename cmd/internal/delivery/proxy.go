@@ -8,8 +8,6 @@ import (
 )
 
 type Proxy struct {
-	Wrap func(upstream http.Handler) http.Handler
-
 	CA *tls.Certificate
 
 	TLSServerConfig *tls.Config
@@ -28,7 +26,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Director:      httpDirector,
 		FlushInterval: p.FlushInterval,
 	}
-	p.Wrap(reverseProxy).ServeHTTP(w, r)
+	reverseProxy.ServeHTTP(w, r)
 }
 
 func httpDirector(r *http.Request) {
