@@ -4,8 +4,9 @@ import (
 	"context"
 	"log"
 
-	"github/Antihoman/Internet-proxy-server/cmd/internal/domain"
+	"github/Antihoman/Internet-proxy-server/cmd/pkg/domain"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -51,6 +52,14 @@ func (repo *Repository) GetAll() ([]domain.HTTPTransaction, error) {
 			log.Println("error Decode", err)
 			continue
 		}
+		id, ok := result.ID.(primitive.ObjectID)
+
+		if ok {
+			result.ID = id.Hex()
+		} else {
+			result.ID = "none"
+		}
+
 		results = append(results, result)
 	}
 	if err := cur.Err(); err != nil {
@@ -59,4 +68,22 @@ func (repo *Repository) GetAll() ([]domain.HTTPTransaction, error) {
 	}
 
 	return results, nil
+}
+
+func (repo *Repository) GetByID(id string) (domain.HTTPTransaction, error) {
+
+	objectId, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return domain.HTTPTransaction{}, err
+	}
+
+	transaction := domain.HTTPTransaction{}
+
+	result := repo.reqCollection.FindOne(context.Background(), bson.M{"_id": objectId})
+	err = result.Decode(&transaction)
+	if err != nil {
+		return domain.HTTPTransaction{}, err
+	}
+
+	return transaction, nil
 }

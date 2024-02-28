@@ -9,7 +9,7 @@ import (
 	"net/http/httputil"
 	"sync"
 
-	"github/Antihoman/Internet-proxy-server/cmd/pkg/cert"
+	"github/Antihoman/Internet-proxy-server/pkg/cert"
 )
 
 func (p *Proxy) serveConnect(w http.ResponseWriter, r *http.Request) {
@@ -74,7 +74,7 @@ func (p *Proxy) serveConnect(w http.ResponseWriter, r *http.Request) {
 
 	ch := make(chan int)
 	clientConnFastClose := &onCloseConn{clientConn, func() { ch <- 0 }}
-	http.Serve(&oneShotListener{clientConnFastClose}, p.Wrap(reverseProxy))
+	http.Serve(&oneShotListener{clientConnFastClose}, p.Wrap(reverseProxy, true))
 	<-ch
 }
 

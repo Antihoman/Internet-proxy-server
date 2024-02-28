@@ -5,5 +5,6 @@ import (
 )
 
 type Repository interface {
-	Add(domain.HTTPTransaction) error
+	GetAll() ([]domain.HTTPTransaction, error)
+	GetByID(string) (domain.HTTPTransaction, error)
 }

@@ -26,6 +26,9 @@ var (
 const URI = "mongodb://root:root@localhost:27017"
 
 func main() {
+	log.SetPrefix("[PROXY] ")
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
 	client, closeConn, err := mongoclient.NewMongoClient(URI)
 	if err != nil {
 		log.Fatal(err)
@@ -51,7 +54,7 @@ func main() {
 		Wrap: middleware.Save,
 	}
 
-	log.Println("listen :8080")
+	log.Println("proxy :8080")
 	log.Fatal(http.ListenAndServe(":8080", proxyHandler))
 }
 
