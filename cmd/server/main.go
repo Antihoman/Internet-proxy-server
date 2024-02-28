@@ -1,6 +1,5 @@
 package main
 
-import "fmt"
 import (
 	"crypto/tls"
 	"crypto/x509"
@@ -16,8 +15,6 @@ import (
 	"github/Antihoman/Internet-proxy-server/cmd/pkg/mongoclient"
 )
 
-const URI = "mongodb://root:root@localhost:27017"
-
 var (
 	hostname, _ = os.Hostname()
 
@@ -26,8 +23,9 @@ var (
 	certFile = path.Join(dir, "ca-cert.pem")
 )
 
+const URI = "mongodb://root:root@localhost:27017"
+
 func main() {
-	fmt.Println("hello")
 	client, closeConn, err := mongoclient.NewMongoClient(URI)
 	if err != nil {
 		log.Fatal(err)
@@ -44,15 +42,17 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	proxyHandler := &delivery.Proxy{
 		CA: &ca,
 		TLSServerConfig: &tls.Config{
 			MinVersion: tls.VersionTLS12,
 		},
+		Wrap: middleware.Save,
 	}
-	chainHandlers := middleware.Log(middleware.Save(proxyHandler))
+
 	log.Println("listen :8080")
-	log.Fatal(http.ListenAndServe(":8080", chainHandlers))
+	log.Fatal(http.ListenAndServe(":8080", proxyHandler))
 }
 
 func loadCA() (cert tls.Certificate, err error) {

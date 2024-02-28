@@ -1,4 +1,3 @@
-
 package repository
 
 import (
@@ -27,7 +26,7 @@ func NewRepository(db *mongo.Client) (Repository, error) {
 	return Repository{db: db, reqCollection: coll}, nil
 }
 
-func (repo *Repository) Add(req domain.Request) error {
+func (repo *Repository) Add(req domain.HTTPTransaction) error {
 	_, err := repo.reqCollection.InsertOne(context.TODO(), req)
 	if err != nil {
 		log.Println("error insert one", err)
@@ -36,17 +35,17 @@ func (repo *Repository) Add(req domain.Request) error {
 	return nil
 }
 
-func (repo *Repository) GetAll() ([]domain.Request, error) {
+func (repo *Repository) GetAll() ([]domain.HTTPTransaction, error) {
 	cur, err := repo.reqCollection.Find(context.TODO(), bson.D{})
 	if err != nil {
 		log.Println("error Find", err)
-		return []domain.Request{}, err
+		return []domain.HTTPTransaction{}, err
 	}
 	defer cur.Close(context.TODO())
 
-	var results []domain.Request
+	var results []domain.HTTPTransaction
 	for cur.Next(context.TODO()) {
-		var result domain.Request
+		var result domain.HTTPTransaction
 		err := cur.Decode(&result)
 		if err != nil {
 			log.Println("error Decode", err)
@@ -56,7 +55,7 @@ func (repo *Repository) GetAll() ([]domain.Request, error) {
 	}
 	if err := cur.Err(); err != nil {
 		log.Println("error cur.Err", err)
-		return []domain.Request{}, err
+		return []domain.HTTPTransaction{}, err
 	}
 
 	return results, nil
